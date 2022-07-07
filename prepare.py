@@ -72,7 +72,8 @@ def eval(args):
             # lr = hr.resize((hr.width // args.scale, hr.height // args.scale), resample=pil_image.BICUBIC)
             lr = pil_resize(hr, 1/args.scale)
         elif args.interp_method == 'TORCH':
-            lr = torch_resize(hr, 1/args.scale)
+            lr = torch_resize(hr.astype(np.float32), 1/args.scale)
+            lr = np.clip(lr, a_min=0, a_max=255).astype(np.uint8)
         else:
             raise Exception("Unsupported Interpolation Method!")
 
