@@ -16,21 +16,24 @@ from utils import AverageMeter, calc_psnr, convert_rgb_to_y, denormalize
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--train-file', type=str, required=True)
-    parser.add_argument('--eval-file', type=str, required=True)
-    parser.add_argument('--outputs-dir', type=str, required=True)
+    parser.add_argument('--train-file', type=str, default="datasets_PIL/DIV2K_bicubic_x2.h5")
+    parser.add_argument('--eval-file', type=str, default="datasets_PIL/Set5_bicubic_x2.h5")
+    parser.add_argument('--outputs-dir', type=str, default="learned_Models/PIL")
     parser.add_argument('--weights-file', type=str)
     parser.add_argument('--num-features', type=int, default=64)
     parser.add_argument('--growth-rate', type=int, default=64)
     parser.add_argument('--num-blocks', type=int, default=16)
     parser.add_argument('--num-layers', type=int, default=8)
-    parser.add_argument('--scale', type=int, default=4)
+    parser.add_argument('--scale', type=int, default=2)
     parser.add_argument('--patch-size', type=int, default=32)
     parser.add_argument('--lr', type=float, default=1e-4)
     parser.add_argument('--batch-size', type=int, default=16)
     parser.add_argument('--num-epochs', type=int, default=800)
-    parser.add_argument('--num-workers', type=int, default=8)
+    parser.add_argument('--num-workers', type=int, default=4)
     parser.add_argument('--seed', type=int, default=123)
+
+    parser.add_argument('--use-gpu', action='store_false')
+
     args = parser.parse_args()
 
     args.outputs_dir = os.path.join(args.outputs_dir, 'x{}'.format(args.scale))
@@ -38,9 +41,21 @@ if __name__ == '__main__':
     if not os.path.exists(args.outputs_dir):
         os.makedirs(args.outputs_dir)
 
-    cudnn.benchmark = True
-    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+    # Select Device
+    if args.use_gpu:
+        if torch.cuda.is_available():
+            device = torch.device('cuda')
+            import torch.backends.cudnn as cudnn
+            cudnn.benchmark = True
+        elif torch.backends.mps.is_available():
+            device = torch.device('mps')
+        else:
+            device = torch.device('cpu')
+    else:
+        device = torch.device('cpu')
+    print("Device = ", device)
 
+    
     torch.manual_seed(args.seed)
 
     model = RDN(scale_factor=args.scale,
@@ -58,7 +73,7 @@ if __name__ == '__main__':
             else:
                 raise KeyError(n)
 
-    criterion = nn.L1Loss()
+    criterion = nn.L1Loss().to(device)
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
 
     train_dataset = TrainDataset(args.train_file, patch_size=args.patch_size, scale=args.scale)
@@ -103,8 +118,8 @@ if __name__ == '__main__':
                 t.set_postfix(loss='{:.6f}'.format(epoch_losses.avg))
                 t.update(len(inputs))
 
-        if (epoch + 1) % 10 == 0:
-            torch.save(model.state_dict(), os.path.join(args.outputs_dir, 'epoch_{}.pth'.format(epoch)))
+        # if (epoch + 1) % 10 == 0:
+        #     torch.save(model.state_dict(), os.path.join(args.outputs_dir, 'epoch_{}.pth'.format(epoch)))
 
         model.eval()
         epoch_psnr = AverageMeter()
@@ -118,8 +133,8 @@ if __name__ == '__main__':
             with torch.no_grad():
                 preds = model(inputs)
 
-            preds = convert_rgb_to_y(denormalize(preds.squeeze(0)), dim_order='chw')
-            labels = convert_rgb_to_y(denormalize(labels.squeeze(0)), dim_order='chw')
+            preds = convert_rgb_to_y(denormalize(preds.squeeze(0))) #, dim_order='chw')
+            labels = convert_rgb_to_y(denormalize(labels.squeeze(0))) #, dim_order='chw')
 
             preds = preds[args.scale:-args.scale, args.scale:-args.scale]
             labels = labels[args.scale:-args.scale, args.scale:-args.scale]
@@ -132,6 +147,7 @@ if __name__ == '__main__':
             best_epoch = epoch
             best_psnr = epoch_psnr.avg
             best_weights = copy.deepcopy(model.state_dict())
+            torch.save(best_weights, os.path.join(args.outputs_dir, 'best.pth'))
 
     print('best epoch: {}, psnr: {:.2f}'.format(best_epoch, best_psnr))
-    torch.save(best_weights, os.path.join(args.outputs_dir, 'best.pth'))
+    

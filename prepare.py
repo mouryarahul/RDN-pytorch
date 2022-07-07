@@ -5,6 +5,10 @@ import numpy as np
 import PIL.Image as pil_image
 from torchvision.transforms import transforms
 
+from matplotlib import pyplot as plt
+
+from interpolation import torch_resize, pil_resize
+
 
 def train(args):
     h5_file = h5py.File(args.output_path, 'w')
@@ -16,14 +20,29 @@ def train(args):
     patch_idx = 0
 
     for i, image_path in enumerate(image_list):
-        hr = pil_image.open(image_path).convert('RGB')
+        hr_img = pil_image.open(image_path).convert('RGB')
 
-        for hr in transforms.FiveCrop(size=(hr.height // 2, hr.width // 2))(hr):
-            hr = hr.resize(((hr.width // args.scale) * args.scale, (hr.height // args.scale) * args.scale), resample=pil_image.BICUBIC)
-            lr = hr.resize((hr.width // args.scale, hr.height // args.scale), resample=pil_image.BICUBIC)
+        # plt.figure()
+        # plt.imshow(hr_img)
+        # plt.show()
 
-            hr = np.array(hr)
-            lr = np.array(lr)
+        for hr in transforms.FiveCrop(size=(hr_img.height // 2, hr_img.width // 2))(hr_img):
+            hr = np.asarray(hr.resize(((hr.width // args.scale) * args.scale, (hr.height // args.scale) * args.scale), resample=pil_image.Resampling.BICUBIC))
+            
+            # plt.figure()
+            # plt.imshow(hr)
+            # plt.show()
+
+            if args.interp_method == 'PIL':
+                # lr = hr.resize((hr.width // args.scale, hr.height // args.scale), resample=pil_image.BICUBIC)
+                lr = pil_resize(hr, 1/args.scale)
+            elif args.interp_method == 'TORCH':
+                lr = torch_resize(hr, 1/args.scale)
+            else:
+                raise Exception("Unsupported Interpolation Method!")
+
+            # hr = np.array(hr)
+            # lr = np.array(lr)
 
             lr_group.create_dataset(str(patch_idx), data=lr)
             hr_group.create_dataset(str(patch_idx), data=hr)
@@ -45,11 +64,19 @@ def eval(args):
         hr = pil_image.open(image_path).convert('RGB')
         hr_width = (hr.width // args.scale) * args.scale
         hr_height = (hr.height // args.scale) * args.scale
-        hr = hr.resize((hr_width, hr_height), resample=pil_image.BICUBIC)
-        lr = hr.resize((hr.width // args.scale, hr_height // args.scale), resample=pil_image.BICUBIC)
+        hr = hr.resize((hr_width, hr_height), resample=pil_image.Resampling.BICUBIC)
+        hr = np.asarray(hr)
 
-        hr = np.array(hr)
-        lr = np.array(lr)
+        if args.interp_method == 'PIL':
+            # lr = hr.resize((hr.width // args.scale, hr.height // args.scale), resample=pil_image.BICUBIC)
+            lr = pil_resize(hr, 1/args.scale)
+        elif args.interp_method == 'TORCH':
+            lr = torch_resize(hr, 1/args.scale)
+        else:
+            raise Exception("Unsupported Interpolation Method!")
+
+        # hr = np.array(hr)
+        # lr = np.array(lr)
 
         lr_group.create_dataset(str(i), data=lr)
         hr_group.create_dataset(str(i), data=hr)
@@ -61,9 +88,11 @@ def eval(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--images-dir', type=str, required=True)
-    parser.add_argument('--output-path', type=str, required=True)
-    parser.add_argument('--scale', type=int, default=4)
+    parser.add_argument('--images-dir', type=str, default='/media/rahul/DATA/WorkSpace/Multimodal-Data-Processing/Projects/DIV2K/benchmark/Set5/HR') #/media/rahul/DATA/WorkSpace/Multimodal-Data-Processing/Projects/DIV-2K/DIV2K_train_HR
+    parser.add_argument('--output-path', type=str, default='datasets_PIL/DIV2K_bicubic_x2.h5')
+    parser.add_argument('--interp-method', type=str, default='PIL',
+                        help='Choose between PIL or TORCH')
+    parser.add_argument('--scale', type=int, default=2)
     parser.add_argument('--eval', action='store_true')
     args = parser.parse_args()
 

@@ -1,12 +1,39 @@
 import torch
 import numpy as np
 
+# def convert_rgb_to_y(img, dim_order='hwc'):
+#     if dim_order == 'hwc':
+#         return 16. + (65.738 * img[..., 0] + 129.057 * img[..., 1] + 25.064 * img[..., 2]) / 256.
+#     else:
+#         return 16. + (65.738 * img[0] + 129.057 * img[1] + 25.064 * img[2]) / 256.
 
-def convert_rgb_to_y(img, dim_order='hwc'):
-    if dim_order == 'hwc':
-        return 16. + (64.738 * img[..., 0] + 129.057 * img[..., 1] + 25.064 * img[..., 2]) / 256.
+
+def convert_rgb_to_y(img):
+    if type(img) == np.ndarray:
+        return 16. + (65.738 * img[:, :, 0] + 129.057 * img[:, :, 1] + 25.064 * img[:, :, 2]) / 256.
+    elif type(img) == torch.Tensor:
+        if len(img.shape) == 4:
+            img = img.squeeze(0)
+        return 16. + (65.738 * img[0, :, :] + 129.057 * img[1, :, :] + 25.064 * img[2, :, :]) / 256.
     else:
-        return 16. + (64.738 * img[0] + 129.057 * img[1] + 25.064 * img[2]) / 256.
+        raise Exception('Unknown Type', type(img))
+
+
+def convert_rgb_to_ycbcr(img):
+    if type(img) == np.ndarray:
+        y = 16. + (65.738 * img[:, :, 0] + 129.057 * img[:, :, 1] + 25.064 * img[:, :, 2]) / 256.
+        cb = 128. + (-37.945 * img[:, :, 0] - 74.494 * img[:, :, 1] + 112.439 * img[:, :, 2]) / 256.
+        cr = 128. + (112.439 * img[:, :, 0] - 94.154 * img[:, :, 1] - 18.285 * img[:, :, 2]) / 256.
+        return np.array([y, cb, cr]).transpose([1, 2, 0])
+    elif type(img) == torch.Tensor:
+        if len(img.shape) == 4:
+            img = img.squeeze(0)
+        y = 16. + (65.738 * img[0, :, :] + 129.057 * img[1, :, :] + 25.064 * img[2, :, :]) / 256.
+        cb = 128. + (-37.945 * img[0, :, :] - 74.494 * img[1, :, :] + 112.439 * img[2, :, :]) / 256.
+        cr = 128. + (112.439 * img[0, :, :] - 94.154 * img[1, :, :] - 18.285 * img[2, :, :]) / 256.
+        return torch.stack((y, cb, cr), 0).permute(1, 2, 0)
+    else:
+        raise Exception('Unknown Type', type(img))
 
 
 def denormalize(img):
@@ -16,12 +43,13 @@ def denormalize(img):
 
 def preprocess(img, device):
     img = np.array(img).astype(np.float32)
-    ycbcr = convert_rgb_to_ycbcr(img)
-    x = ycbcr[..., 0]
-    x /= 255.
-    x = torch.from_numpy(x).to(device)
-    x = x.unsqueeze(0).unsqueeze(0)
-    return x, ycbcr
+    y = convert_rgb_to_y(img)
+    # ycbcr = convert_rgb_to_ycbcr(img)
+    # x = ycbcr[..., 0]
+    y /= 255.
+    y = torch.from_numpy(y).to(device)
+    y = y.unsqueeze(0).unsqueeze(0)
+    return y
 
 
 def calc_psnr(img1, img2, max=255.0):
