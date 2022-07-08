@@ -1,1 +1,2 @@
 Scale x2: best epoch: 789, psnr: 38.12
+Scale x4: best epoch: 691, psnr: 32.34
