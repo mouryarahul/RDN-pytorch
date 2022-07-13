@@ -19,12 +19,16 @@ if __name__ == '__main__':
     parser.add_argument('--train-file', type=str, default="datasets_PIL/DIV2K_bicubic_x2.h5")
     parser.add_argument('--eval-file', type=str, default="datasets_PIL/Set5_bicubic_x2.h5")
     parser.add_argument('--outputs-dir', type=str, default="learned_Models/PIL")
-    parser.add_argument('--weights-file', type=str)
+    parser.add_argument('--weights-file', type=str, default='')
+
+    # Parameters related to Model specification
     parser.add_argument('--num-features', type=int, default=64)
     parser.add_argument('--growth-rate', type=int, default=64)
     parser.add_argument('--num-blocks', type=int, default=16)
     parser.add_argument('--num-layers', type=int, default=8)
     parser.add_argument('--scale', type=int, default=2)
+
+    # Parameter related to Data and Loader
     parser.add_argument('--patch-size', type=int, default=32)
     parser.add_argument('--lr', type=float, default=1e-4)
     parser.add_argument('--batch-size', type=int, default=16)
@@ -32,7 +36,7 @@ if __name__ == '__main__':
     parser.add_argument('--num-workers', type=int, default=4)
     parser.add_argument('--seed', type=int, default=123)
 
-    parser.add_argument('--use-gpu', action='store_false')
+    parser.add_argument('--use-gpu', action='store_true')
 
     args = parser.parse_args()
 
