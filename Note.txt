@@ -1,2 +1,9 @@
+PIL Bicubic Interpolation:
 Scale x2: best epoch: 789, psnr: 38.12
 Scale x4: best epoch: 691, psnr: 32.34
+
+TORCH Bicubic Interpolation:
+Scale x2: best epoch: 792, psnr: 37.18
+Scale x3: best epoch: 743, psnr: 32.84
+Scale x4: best epoch: 768, psnr: 30.19
+
